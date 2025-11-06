@@ -17,22 +17,20 @@ import { InspectorProxy } from "./inspector-proxy";
  *  - when a web socket connection is requested for a worker it passes such request to the appropriate proxy
  */
 export class InspectorProxyController {
-	#runtimeConnectionEstablished: DeferredPromise<void>;
+	#runtimeConnectionEstablished = new DeferredPromise<void>();
 
 	#proxies: InspectorProxy[] = [];
 
 	#server: Promise<Server>;
 
-	#inspectorPort: Promise<number>;
+	#inspectorPort = new DeferredPromise<number>();
 
 	constructor(
 		private inspectorPortOption: number,
 		private log: Log,
 		private workerNamesToProxy: Set<string>
 	) {
-		this.#inspectorPort = this.#getInspectorPortToUse();
 		this.#server = this.#initializeServer();
-		this.#runtimeConnectionEstablished = new DeferredPromise();
 	}
 
 	async #getInspectorPortToUse() {
@@ -63,14 +61,14 @@ export class InspectorProxyController {
 		const listeningPromise = new Promise<void>((resolve) =>
 			server.once("listening", resolve)
 		);
-		server.listen(await this.#inspectorPort);
-
+		this.#tryToListen(server);
 		await listeningPromise;
 
 		return server;
 	}
 
 	async #restartServer() {
+		this.#inspectorPort = new DeferredPromise();
 		const server = await this.#server;
 		server.closeAllConnections();
 		await new Promise<void>((resolve, reject) => {
@@ -79,8 +77,31 @@ export class InspectorProxyController {
 		const listeningPromise = new Promise<void>((resolve) =>
 			server.once("listening", resolve)
 		);
-		server.listen(await this.#inspectorPort);
+		this.#tryToListen(server);
 		await listeningPromise;
+	}
+
+	/**
+	 * Try up 5 times to start listening on a free port (or only once if the user specified a port).
+	 *
+	 * This is because there is a small chance that between us getting a free port and us starting to listen on it,
+	 * another process may have taken that port.
+	 *
+	 * @param server the server to start listening.
+	 */
+	async #tryToListen(server: Server): Promise<void> {
+		let attempts = this.inspectorPortOption === 0 ? 5 : 1;
+		while (attempts > 0) {
+			try {
+				const port = await this.#getInspectorPortToUse();
+				server.listen(port);
+				this.#inspectorPort.resolve(port);
+				break;
+			} catch (e) {
+				attempts--;
+				if (attempts === 0) throw e;
+			}
+		}
 	}
 
 	#initializeWebSocketServer(server: Server) {
@@ -243,7 +264,6 @@ export class InspectorProxyController {
 		this.workerNamesToProxy = workerNamesToProxy;
 		if (this.inspectorPortOption !== inspectorPortOption) {
 			this.inspectorPortOption = inspectorPortOption;
-			this.#inspectorPort = this.#getInspectorPortToUse();
 
 			await this.#restartServer();
 		}
