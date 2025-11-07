@@ -1,5 +1,30 @@
 # wrangler
 
+## 4.47.0
+
+### Minor Changes
+
+- [#11187](https://github.com/cloudflare/workers-sdk/pull/11187) [`8abc789`](https://github.com/cloudflare/workers-sdk/commit/8abc7899bb1adb7a1315bf752b07cb8e6564ff56) Thanks [@dario-piotrowicz](https://github.com/dario-piotrowicz)! - Add possibility for users to edit their project settings during autoconfig
+
+  When running `wrangler deploy --experimental-autoconfig`, after the automatic project settings detection Wrangler will now present users the opportunity to customize the auto-detected project's settings
+
+### Patch Changes
+
+- [#11178](https://github.com/cloudflare/workers-sdk/pull/11178) [`63defa2`](https://github.com/cloudflare/workers-sdk/commit/63defa28c825e77ab6c04d0d431ebaf1bd985069) Thanks [@ascorbic](https://github.com/ascorbic)! - Log a more helpful error when attempting to "r2 object put" a non-existent file
+
+- [#11199](https://github.com/cloudflare/workers-sdk/pull/11199) [`70d3d4a`](https://github.com/cloudflare/workers-sdk/commit/70d3d4a2f41df24785273f55bd4fb09904724e6b) Thanks [@penalosa](https://github.com/penalosa)! - Add telemetry to autoconfig
+
+- [#11186](https://github.com/cloudflare/workers-sdk/pull/11186) [`38396ed`](https://github.com/cloudflare/workers-sdk/commit/38396edc4754b8d86b07c7198d0478d73b86ef51) Thanks [@hoodmane](https://github.com/hoodmane)! - Removed warning when deploying a Python worker
+
+- [#11195](https://github.com/cloudflare/workers-sdk/pull/11195) [`e85f965`](https://github.com/cloudflare/workers-sdk/commit/e85f965106eee43577fa05f18ea3cb55d538cbd4) Thanks [@ascorbic](https://github.com/ascorbic)! - Ignores `.dev.vars` if `--env-file` has been explicitly passed
+
+  Previously, `.dev.vars` would always be read first, and then any file passed with `--env-file` would override variables in `.dev.vars`. This meant there was no way to ignore `.dev.vars` if you wanted to use a different env file. Now, if `--env-file` is passed, `.dev.vars` will be ignored entirely.
+
+- [#11181](https://github.com/cloudflare/workers-sdk/pull/11181) [`88aa707`](https://github.com/cloudflare/workers-sdk/commit/88aa7071f888a9ccc84b8f2030b961c21769f0e3) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - add more logging around Wrangler authentication to help diagnose issues
+
+- Updated dependencies [[`dd7d584`](https://github.com/cloudflare/workers-sdk/commit/dd7d584cc9656896c3673b51f2589be967edee9b)]:
+  - miniflare@4.20251106.0
+
 ## 4.46.0
 
 ### Minor Changes
