@@ -277,6 +277,7 @@ import {
 	secretsStoreStoreListCommand,
 } from "./secrets-store/commands";
 import { addBreadcrumb, closeSentry, setupSentry } from "./sentry";
+import { setupCommand } from "./setup";
 import { tailCommand } from "./tail";
 import { triggersDeployCommand, triggersNamespace } from "./triggers";
 import { typesCommand } from "./type-generation";
@@ -557,6 +558,14 @@ export function createCLIParser(argv: string[]) {
 		},
 	]);
 	registry.registerNamespace("deploy");
+
+	registry.define([
+		{
+			command: "wrangler setup",
+			definition: setupCommand,
+		},
+	]);
+	registry.registerNamespace("setup");
 
 	registry.define([
 		{ command: "wrangler deployments", definition: deploymentsNamespace },
