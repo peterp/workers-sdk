@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import { createServer, IncomingMessage, Server } from "node:http";
+import { setTimeout } from "timers/promises";
 import getPort from "get-port";
-import { DeferredPromise } from "miniflare:shared";
+import { DeferredPromise, LogLevel } from "miniflare:shared";
 import WebSocket, { WebSocketServer } from "ws";
 import { version as miniflareVersion } from "../../../../package.json";
 import { Log } from "../../../shared";
@@ -58,11 +59,7 @@ export class InspectorProxyController {
 
 		this.#initializeWebSocketServer(server);
 
-		const listeningPromise = new Promise<void>((resolve) =>
-			server.once("listening", resolve)
-		);
-		this.#tryToListen(server);
-		await listeningPromise;
+		await this.#startListening(server);
 
 		return server;
 	}
@@ -70,15 +67,8 @@ export class InspectorProxyController {
 	async #restartServer() {
 		this.#inspectorPort = new DeferredPromise();
 		const server = await this.#server;
-		server.closeAllConnections();
-		await new Promise<void>((resolve, reject) => {
-			server.close((err) => (err ? reject(err) : resolve()));
-		});
-		const listeningPromise = new Promise<void>((resolve) =>
-			server.once("listening", resolve)
-		);
-		this.#tryToListen(server);
-		await listeningPromise;
+		await this.#closeServer(server);
+		await this.#startListening(server);
 	}
 
 	/**
@@ -89,19 +79,44 @@ export class InspectorProxyController {
 	 *
 	 * @param server the server to start listening.
 	 */
-	async #tryToListen(server: Server): Promise<void> {
+	async #startListening(server: Server): Promise<void> {
+		const listening = new DeferredPromise<void>();
 		let attempts = this.inspectorPortOption === 0 ? 5 : 1;
 		while (attempts > 0) {
 			try {
 				const port = await this.#getInspectorPortToUse();
-				server.listen(port);
+				this.log.debug("Trying to listen on port: " + port);
+				server.listen(port, () => listening.resolve());
 				this.#inspectorPort.resolve(port);
 				break;
 			} catch (e) {
 				attempts--;
-				if (attempts === 0) throw e;
+				if (attempts > 0 && isAddressInUseError(e)) {
+					this.log.debug(`Retrying to listen due to error: ${e}`);
+					await this.#closeServer(server);
+					await setTimeout(200);
+				}
+				this.log.logWithLevel(
+					LogLevel.ERROR,
+					`Failed to start inspector proxy server: ${e}`
+				);
+				throw e;
 			}
+			return listening;
 		}
+	}
+
+	async #closeServer(server: Server) {
+		server.closeAllConnections();
+		return await new Promise<void>((resolve) => {
+			// We'll resolve whether or not the close had an error.
+			server.close((err) => {
+				if (err) {
+					this.log.error(err);
+				}
+				resolve();
+			});
+		});
 	}
 
 	#initializeWebSocketServer(server: Server) {
@@ -328,3 +343,7 @@ const ALLOWED_ORIGIN_HOSTNAMES = [
 	"[::1]",
 	"localhost",
 ];
+
+function isAddressInUseError(e: unknown): e is Error & { code: "EADDRINUSE" } {
+	return e instanceof Error && "code" in e && e.code === "EADDRINUSE";
+}
